@@ -1,0 +1,52 @@
+name: "Vercel + Render Smart Deploy"
+description: "Deploys frontend to Vercel and backend to Render if folders exist"
+
+inputs:
+  vercel-token:
+    required: true
+  render-api-key:
+    required: true
+  render-service-id:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check frontend
+      id: check_frontend
+      shell: bash
+      run: |
+        if [ -d "frontend" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check backend
+      id: check_backend
+      shell: bash
+      run: |
+        if [ -d "backend" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Install Vercel
+      if: steps.check_frontend.outputs.exists == 'true'
+      shell: bash
+      run: npm install -g vercel
+
+    - name: Deploy to Vercel
+      if: steps.check_frontend.outputs.exists == 'true'
+      shell: bash
+      run: |
+        cd frontend
+        vercel deploy --prod --token ${{ inputs.vercel-token }}
+
+    - name: Trigger Render Deploy
+      if: steps.check_backend.outputs.exists == 'true'
+      shell: bash
+      run: |
+        curl -X POST "https://api.render.com/v1/services/${{ inputs.render-service-id }}/deploys" \
+          -H "Authorization: Bearer ${{ inputs.render-api-key }}"
